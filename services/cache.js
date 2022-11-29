@@ -7,8 +7,9 @@ client.connect();
 
 const exec = mongoose.Query.prototype.exec;
 
-mongoose.Query.prototype.cache = function () {
+mongoose.Query.prototype.cache = function (options = {}) {
   this.useCache = true;
+  this.hashKey = options.key || '';
   return this;
 };
 
@@ -22,7 +23,7 @@ mongoose.Query.prototype.exec = async function () {
     collection: this.mongooseCollection.name,
   });
 
-  const cacheValue = await client.get(key);
+  const cacheValue = await client.hGet(this.hashKey, key);
 
   if (cacheValue) {
     const doc = JSON.parse(cacheValue);
@@ -33,7 +34,7 @@ mongoose.Query.prototype.exec = async function () {
 
   const result = await exec.apply(this, arguments);
 
-  client.set(key, JSON.stringify(result));
+  client.hSet(this.hashKey, key, JSON.stringify(result), 'EX', 10);
 
   return result;
 };
